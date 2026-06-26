@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "compickle"
+version = "1.1.0"
+description = "Español: biblioteca rapida con multiple soporte al estilo pinckle English: Quick library with multiple support in the Pinckle style"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+
+authors = [
+    { name = "Luis Fernando Montaño Hernandez" }
+]
+
+keywords = [
+    "serializer",
+    "pickle",
+    "binary",
+    "performance",
+    "python",
+    "serialization"
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Archiving"
+]
+
+[tool.setuptools]
+py-modules = ["compickle"]

@@ -1,0 +1,70 @@
+compickle
+
+compickle es un serializador binario para Python implementado con una extensión en C, diseñado para ofrecer una API muy sencilla y un buen rendimiento.
+
+Instalación
+
+pip install .
+
+o
+
+python setup.py build_ext --inplace
+
+Uso
+
+import compickle
+
+datos = {
+    "nombre": "Rex",
+    "edad": 5,
+    "numeros": [1, 2, 3]
+}
+
+blob = compickle.dumps(datos)
+copia = compickle.loads(blob)
+
+API
+
+Serializar
+
+blob = compickle.dumps(obj)
+
+Deserializar
+
+obj = compickle.loads(blob)
+
+Reiniciar la tabla de deduplicación
+
+compickle.dedup_reset()
+
+Tipos soportados
+
+- None
+- bool
+- int
+- float
+- str
+- bytes
+- bytearray
+- list
+- tuple
+- dict
+- Objetos con "__dict__"
+- Objetos con "__slots__"
+- Objetos que implementan "__reduce__"
+
+Características
+
+- Implementación principal en C.
+- Deduplicación automática de cadenas y bloques repetidos.
+- Reconstrucción de clases mediante su código fuente cuando es posible.
+- API pequeña y fácil de usar.
+- Compilación nativa para la arquitectura donde se instala.
+
+Objetivo
+
+compickle está pensado para proyectos que necesitan una serialización rápida y una interfaz simple, sin depender de protocolos complejos ni de configuraciones adicionales.
+
+Licencia
+
+MIT.
