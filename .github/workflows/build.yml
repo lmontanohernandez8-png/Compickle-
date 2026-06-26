@@ -1,12 +1,13 @@
-name: Build y publicar wheels
+name: Build wheels
 
 on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build_wheels:
@@ -31,117 +32,25 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
-        if: matrix.arch == 'aarch64'
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.19
+        uses: pypa/cibuildwheel@v2.21.0
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
-          CIBW_SKIP: pp* *-win32 *-manylinux_i686
-          CIBW_BUILD_FRONTEND: build
+          CIBW_SKIP: "pp* *-win32 *-manylinux_i686"
+          CIBW_BUILD_FRONTEND: pip
+          CIBW_BEFORE_BUILD: python -m pip install -U pip setuptools wheel
           CIBW_ENVIRONMENT: >
             CFLAGS="-O3 -fomit-frame-pointer"
           CIBW_TEST_COMMAND: python -c "import compickle; assert compickle.dumps([1,2,3]) != b''"
 
-      - name: Subir wheels
+      - name: Guardar wheels como artefacto
         uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}-${{ matrix.arch }}
           path: ./wheelhouse/*.whl
-
-  # ── Android ARM64 (NDK cross-compile) ─────────────────────────────────────
-  build_android:
-    name: Android ARM64 (NDK)
-    runs-on: ubuntu-latest
-    env:
-      NDK_VERSION: "26.3.11579264"
-      ANDROID_API: "24"
-      PY_VERSION: "3.13"
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Instalar Android NDK
-        run: |
-          sudo apt-get install -y wget unzip
-          wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip
-          unzip -q android-ndk-r26d-linux.zip
-          echo "NDK_HOME=$PWD/android-ndk-r26d" >> $GITHUB_ENV
-
-      - name: Instalar Python host + cross-python headers
-        run: |
-          sudo apt-get install -y python3 python3-dev python3-pip
-          pip3 install wheel setuptools
-
-      - name: Descargar Python Android headers
-        run: |
-          # Usamos las headers de python-for-android o BeeWare
-          wget -q https://github.com/beeware/cpython-android/releases/download/${PY_VERSION}/cpython-${PY_VERSION}-android-aarch64.tar.gz
-          tar xzf cpython-${PY_VERSION}-android-aarch64.tar.gz
-          echo "PY_ANDROID=$PWD/cpython-${PY_VERSION}-android-aarch64" >> $GITHUB_ENV
-
-      - name: Compilar extensión C para Android ARM64
-        run: |
-          TOOLCHAIN=$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
-          CC=$TOOLCHAIN/bin/aarch64-linux-android${ANDROID_API}-clang
-
-          $CC -O3 -fomit-frame-pointer -fPIC \
-            -I$PY_ANDROID/include/python${PY_VERSION} \
-            -shared \
-            -o _compickle.cpython-${PY_VERSION/./}-aarch64-linux-android.so \
-            compickle.c \
-            -lz
-
-      - name: Empaquetar wheel Android
-        run: |
-          pip3 install wheel
-          PYVER="${PY_VERSION/./}"
-          SONAME="_compickle.cpython-${PYVER}-aarch64-linux-android.so"
-          WHEEL_NAME="compickle-$(grep version pyproject.toml | head -1 | grep -oP '[\d.]+')-cp${PYVER}-cp${PYVER}-android_24_arm64_v8a.whl"
-
-          mkdir -p wheel_build
-          cp compickle.py wheel_build/
-          cp $SONAME wheel_build/
-          cd wheel_build
-          python3 -c "
-          import wheel.wheelfile, os, zipfile
-          whl = '${WHEEL_NAME}'
-          with zipfile.ZipFile('../dist/' + whl, 'w', zipfile.ZIP_DEFLATED) as z:
-              z.write('compickle.py')
-              z.write('${SONAME}')
-          print('Wheel creado:', whl)
-          "
-          mkdir -p ../dist
-          cd ..
-
-      - name: Subir wheel Android
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-android-aarch64
-          path: dist/*.whl
-
-  publish:
-    name: Publicar en PyPI
-    needs: [build_wheels, build_android]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    environment:
-      name: pypi
-      url: https://pypi.org/p/compickle
-    permissions:
-      id-token: write
-
-    steps:
-      - name: Descargar todos los wheels
-        uses: actions/download-artifact@v4
-        with:
-          pattern: wheels-*
-          merge-multiple: true
-          path: dist/
-
-      - name: Publicar en PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
